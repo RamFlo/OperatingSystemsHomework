@@ -6,8 +6,13 @@ int main(int argc, char* argv[]) {
 			printf("ERROR: foek() failed");
 			exit(0);
 		}
-		if (pid == 0) {
-			//child
+		//need to unserstand: what does "exclude the process from the list of managed processes" mean?
+		else if (pid == 0) {
+			//execute child program (sym_count) - check for error!
+		}
+		else {
+			//parent code: waitpid for child and once child returned use SIGCONT, max of termination bound
+			//when child process exited OR reached termination bound: SIGTERM the child
 		}
 	}
 }
