@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 		if (readData[i] == symbol)
 			counter++;
 	}
-
+	//sd
 	//write sprintf into fd=argv[3][0]
 	//close write end
 	exit(freeMemResources());
