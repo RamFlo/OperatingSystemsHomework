@@ -10,9 +10,9 @@ int counter = 0;
 
 void my_signal_handler(int signum, siginfo_t* info, void* ptr) {
 	if (signum == SIGCONT)
-		printf("Process %d continues\n", (int)info->si_pid);
+		printf("Process %d continues\n", getpid());
 	if (signum == SIGTERM) {
-		printf("Process %d finishes. Symbol %c. Instances %d.\n", (int)info->si_pid,sym,counter);
+		printf("Process %d finishes. Symbol %c. Instances %d.\n", getpid(),sym,counter);
 		exit(0);
 	}
 }
@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 	FILE* myFile;
 	char buffer[1024];
 	int i=0;
+	errno = 0;
 	myFile = fopen(argv[1], "r");
 	sym = argv[2][0];
 	struct sigaction new_action;
@@ -32,7 +33,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	if (myFile == NULL) {
-		printf("ERROR: could not open file");
+		printf("ERROR: could not open file. error num: %d. filename: %s\n", errno,argv[1]);
 		exit(0);
 	}
 	while (fgets(buffer, 1024, myFile) != NULL) {

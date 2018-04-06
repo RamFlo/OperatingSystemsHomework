@@ -116,6 +116,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="dfdfdf.c" />
     <ClCompile Include="sym_count.c" />
     <ClCompile Include="sym_mng.c" />
   </ItemGroup>
