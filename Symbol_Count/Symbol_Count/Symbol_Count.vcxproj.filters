@@ -21,8 +21,5 @@
     <ClCompile Include="sym_mng.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dfdfdf.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>
