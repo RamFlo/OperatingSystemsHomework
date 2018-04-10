@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 	allChildStopCounts= (int*)malloc(childNum * sizeof(int));
-	if (allChildPids == NULL) {
+	if (allChildStopCounts == NULL) {
 		free(allChildPids);
 		printf("malloc error: %s\n", strerror(errno));
 		return -1;
@@ -96,4 +96,5 @@ int main(int argc, char* argv[]) {
 		free(allChildPids);
 		free(allChildStopCounts);
 	}
+	return 0;
 }
