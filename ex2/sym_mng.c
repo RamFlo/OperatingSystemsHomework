@@ -26,7 +26,7 @@ void handleForkError(int errPlace){
     int i=0;
     for (i=0;i<errPlace;i++){
         close(allChildPipes[i][0]);
-        close(allChildPipes[i][1]);
+        //close(allChildPipes[i][1]); write end already closed (see 'else' in fork iteration)
     }
 }
 
@@ -54,6 +54,7 @@ int main(int argc, char* argv[]) {
 	int i = 0,pid=0,curChild=0,exitCode=0,curChildIndex=-1;
 	char *dirpath;
 	char letterString[2] = "\0";
+    char childOutputPipeString[2] = "\0";
     struct sigaction new_action;
 	childNum = strlen(argv[2]);
 	dirpath = dirname(argv[0]);
@@ -103,21 +104,31 @@ int main(int argc, char* argv[]) {
 			exit(EXIT_FAILURE);
 		}
 		else if (pid == 0) {
+            close(allChildPipes[i][0]); //child: close unsued read end
             letterString[0] = argv[2][i];
-            char* childArgs[] = { symCountPath, argv[1],letterString ,NULL};
+            childOutputPipeString[0]=allChildPipes[i][1]; //child pipe write descriptor
+            char* childArgs[] = { symCountPath, argv[1],letterString ,childOutputPipeString,NULL};
             if (execvp(symCountPath, childArgs) == -1) {
-                printf("execvp failed. program path: %s\targv[0]=%s, argv[1]=%s, argv[2]=%s\n", symCountPath, childArgs[0], childArgs[1], childArgs[2]);
+                printf("execvp failed. program path: %s\targv[0]=%s, argv[1]=%s, argv[2]=%s, argv[2]=%s\n", symCountPath, childArgs[0], childArgs[1], childArgs[2],childArgs[3]);
                 return 0;
             }
         }
-        else
+        else{
             allChildPids[i] = pid;
+            close(allChildPipes[i][1]); //parent: close unused write end
+        }
+            
 	}
 	while (-1!=(curChild=wait(&exitCode))) {
 		sleep(1);
 		curChildIndex=findChildIndex(curChild,allChildPids,childNum);
         if (!WIFEXITED(exitCode))
             printf("child pid=%d terminated abnormally with exit code=%d. continuing anyway.\n", allChildPids[curChildIndex], exitCode);
+        else{
+            //read from pipe the child's output into string (char array)
+            //printf said string
+            //close pipe's read end
+        }
         allChildPids[curChildIndex] = allChildPids[childNum - 1];
         allChildPipes[curChildIndex] = allChildPipes[childNum - 1];
         if ((childNum - 1) == 0){
