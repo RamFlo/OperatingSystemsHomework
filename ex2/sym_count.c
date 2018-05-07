@@ -34,8 +34,11 @@ void my_signal_handler(int signum, siginfo_t* info, void* ptr) {
 		freeMemResources();
 		exit(EXIT_FAILURE);
 	}
-	if (signum == SIGTERM)
-		exit(freeMemResources());
+	if (signum == SIGTERM){
+        freeMemResources();
+        exit(EXIT_FAILURE);
+    }
+		
 }
 
 int main(int argc, char* argv[]) {
