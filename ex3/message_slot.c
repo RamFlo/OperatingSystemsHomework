@@ -88,10 +88,10 @@ static ssize_t device_write(struct file *file, const char __user *buffer, size_t
 {
   int minorNum=-1,i=0,channelNum=-1;
   minorMsgSlotNode *minorPtr=NULL;
-  //no channel has been set
+  //check if a channel has been set
   if (file->private_data==NULL)
     return -EINVAL;
-    //given message length surpasses limit
+  //check message length
   if (length>MSG_SIZE)
     return -EINVAL;
   minorNum=iminor(file_inode(file));
@@ -109,14 +109,16 @@ static ssize_t device_write(struct file *file, const char __user *buffer, size_t
     if(get_user(minorPtr->messageSlotArray[channelNum][i], &buffer[i])<0)
       return -EINVAL;
   }
-  // return the number of input characters used
+  // return the number of input characters written
   return i;
 }
 
 static long device_ioctl(struct file *file, unsigned int ioctl_command_id, unsigned long ioctl_param)
 {
+  //check recieved command
   if (ioctl_command_id != MSG_SLOT_CHANNEL)
     return -EINVAL;
+  //check recieved channel num
   if (ioctl_param<0 || ioctl_param>=SLOT_CHANNELS)
     return -EINVAL;
   file->private_data=(void*)ioctl_param;
