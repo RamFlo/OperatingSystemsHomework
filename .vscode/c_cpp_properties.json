@@ -34,7 +34,9 @@
                 "/usr/local/include",
                 "/usr/lib/gcc/x86_64-linux-gnu/5/include-fixed",
                 "/usr/include/x86_64-linux-gnu",
-                "/usr/include"
+                "/usr/include",
+                "/usr/src/linux-headers-4.13.0-38-generic/include",
+                "/usr/src/linux-headers-4.13.0-38/arch/x86/include"
             ],
             "defines": [],
             "intelliSenseMode": "clang-x64",
@@ -48,7 +50,9 @@
                     "/usr/local/include",
                     "/usr/lib/gcc/x86_64-linux-gnu/5/include-fixed",
                     "/usr/include/x86_64-linux-gnu",
-                    "/usr/include"
+                    "/usr/include",
+                    "/usr/src/linux-headers-4.13.0-38-generic/include",
+                    "/lib/modules/4.13.0-38-generic/build"
                 ],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""

@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "signal.h": "c",
+        "errno.h": "c",
+        "mman.h": "c",
+        "module.h": "c",
+        "init.h": "c",
+        "fs.h": "c",
+        "message_slot.h": "c",
+        "uaccess.h": "c"
+    }
+}
