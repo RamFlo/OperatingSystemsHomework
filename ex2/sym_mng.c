@@ -16,12 +16,21 @@ int (*allChildPipes)[2];
 
 void freeMemResources()
 {
-	if (allChildPids != NULL)
+	if (allChildPids != NULL){
 		free(allChildPids);
-	if (symCountPath != NULL)
+		allChildPids=NULL;
+	}
+		
+	if (symCountPath != NULL){
 		free(symCountPath);
-	if (allChildPipes != NULL)
+		symCountPath=NULL;
+	}
+		
+	if (allChildPipes != NULL){
 		free(allChildPipes);
+		allChildPipes=NULL;
+	}
+		
 }
 
 void handleForkError(int errPlace)
@@ -63,7 +72,7 @@ int main(int argc, char *argv[])
 	int i = 0, pid = 0, curChild = 0, exitCode = 0, curChildIndex = -1, charsRead = 0;
 	char *dirpath;
 	char letterString[2] = "\0";
-	char childOutputPipeString[2] = "\0";
+	char childOutputPipeString[20] = "\0";
 	char childOutputString[MAX_MSG_SIZE];
 	struct sigaction new_action;
 	childNum = strlen(argv[2]);
@@ -123,11 +132,12 @@ int main(int argc, char *argv[])
 		{
 			close(allChildPipes[i][0]); //child: close unsued read end
 			letterString[0] = argv[2][i];
-			childOutputPipeString[0] = allChildPipes[i][1]; //child pipe write descriptor
+			sprintf(childOutputPipeString,"%d",allChildPipes[i][1]); //child pipe write descriptor
+			//childOutputPipeString[0] = allChildPipes[i][1]; 
 			char *childArgs[] = {symCountPath, argv[1], letterString, childOutputPipeString, NULL};
 			if (execvp(symCountPath, childArgs) == -1)
 			{
-				printf("execvp failed. program path: %s\targv[0]=%s, argv[1]=%s, argv[2]=%s, argv[2]=%s\n", symCountPath, childArgs[0], childArgs[1], childArgs[2], childArgs[3]);
+				printf("execvp failed. program path: %s\targv[0]=%s, argv[1]=%s, argv[2]=%s, argv[3]=%s\n", symCountPath, childArgs[0], childArgs[1], childArgs[2], childArgs[3]);
 				close(allChildPipes[i][1]); //close child write end if child program could not be executed
 				freeMemResources();
 				exit(EXIT_FAILURE);
