@@ -49,11 +49,19 @@ void my_signal_handler(int signum, siginfo_t *info, void *ptr)
 		freeMemResources();
 		exit(EXIT_FAILURE);
 	}
+<<<<<<< HEAD
+	if (signum == SIGTERM){
+        freeMemResources();
+        exit(EXIT_FAILURE);
+    }
+		
+=======
 	if (signum == SIGTERM)
 	{
 		freeMemResources();
 		exit(EXIT_FAILURE);
 	}
+>>>>>>> 83c9764e1a7373e933d6e0a34ab05f9207a0ee27
 }
 
 int main(int argc, char *argv[])
