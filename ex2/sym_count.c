@@ -66,7 +66,7 @@ void my_signal_handler(int signum, siginfo_t *info, void *ptr)
 
 int main(int argc, char *argv[])
 {
-	int i = 0, charsRead = 0;
+	int i = 0;
 	char msgToPipe[MAX_MSG_SIZE];
 	symbol = argv[2][0];
 	fileDesc = open(argv[1], O_RDONLY);
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 	sprintf(msgToPipe, "Process %d finishes. Symbol %c. Instances %d.\n", getpid(), symbol, counter);
 	if (argc >= 4)
 	{
-		pipeFileDesc = argv[3][0];
+		pipeFileDesc = atoi(argv[3]);
 		if (write(pipeFileDesc, msgToPipe, strlen(msgToPipe)) != strlen(msgToPipe))
 		{
 			printf("Could not write to pipe. %s\n", strerror(errno));
