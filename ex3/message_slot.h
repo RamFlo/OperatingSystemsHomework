@@ -14,8 +14,6 @@
 
 typedef struct minorMsgSlotNode{
     int minorNumber;
-    //int closed;
-    //int channel;
     int msgSizesArray[SLOT_CHANNELS];
     char messageSlotArray[SLOT_CHANNELS][MSG_SIZE];
     struct minorMsgSlotNode* next;

@@ -34,7 +34,7 @@ int createAndAddNewMinorSlot(int minorToAdd)
   newMinorNode->minorNumber = minorToAdd;
   newMinorNode->next = headNode;
   for (i=0;i<SLOT_CHANNELS;i++)
-    newMinorNode->msgSizesArray[i]=0;
+    newMinorNode->msgSizesArray[i]=-1;
   headNode = newMinorNode;
   return SUCCESS;
 }
@@ -63,12 +63,6 @@ static int device_open(struct inode *inode, struct file *file)
 
 static int device_release(struct inode *inode, struct file *file)
 {
-  // int minorToRelease = iminor(inode);
-  // minorMsgSlotNode *minorPtr = findMinorInSlotList(headNode, minorToRelease);
-  // if (minorPtr == NULL)
-  //   return SUCCESS;
-  // return -EINVAL;
-  // file->
   return SUCCESS;
 }
 
@@ -76,19 +70,19 @@ static int device_release(struct inode *inode, struct file *file)
 // the device file attempts to read from it
 static ssize_t device_read(struct file *file, char __user *buffer, size_t length, loff_t *offset)
 {
-    int minorNum=-1,i=0,channelNum=(int)file->private_data;
+    int minorNum=-1,i=0,channelNum=(int)((size_t)file->private_data);
   minorMsgSlotNode *minorPtr=NULL;
   //no channel has been set
   if (channelNum==-1)
     return -EINVAL;
   minorNum=iminor(file_inode(file));
   minorPtr = findMinorInSlotList(headNode, minorNum);
-  //no msg in channel
-  if (minorPtr->msgSizesArray[channelNum]==0)
-    return -EWOULDBLOCK;
   //given buffer length is not enough
-  if (length<minorPtr->msgSizesArray[channelNum])
+  if (((int)length)<minorPtr->msgSizesArray[channelNum])
     return -ENOSPC;
+  //no msg in channel
+  if (minorPtr->msgSizesArray[channelNum]==-1)
+    return -EWOULDBLOCK;
   for (i = 0; i < minorPtr->msgSizesArray[channelNum]; i++)
   {
     if(put_user(minorPtr->messageSlotArray[channelNum][i], &buffer[i])<0)
@@ -102,13 +96,13 @@ static ssize_t device_read(struct file *file, char __user *buffer, size_t length
 // the device file attempts to write to it
 static ssize_t device_write(struct file *file, const char __user *buffer, size_t length, loff_t *offset)
 {
-  int minorNum=-1,i=0,channelNum=(int)file->private_data;
+  int minorNum=-1,i=0,channelNum=(int)((size_t)file->private_data);
   minorMsgSlotNode *minorPtr=NULL;
   //no channel has been set
   if (channelNum==-1)
     return -EINVAL;
   //given message length surpasses limit
-  if (length>MSG_SIZE)
+  if (((int)length)>MSG_SIZE)
     return -EINVAL;
   minorNum=iminor(file_inode(file));
   minorPtr = findMinorInSlotList(headNode, minorNum);
@@ -159,7 +153,7 @@ static int __init msg_slot_init(void)
     printk( KERN_ALERT "%s registration failed for major number %d\n",DEVICE_RANGE_NAME,MAJOR_NUM);
     return majorNum;
   }
-  printk(KERN_INFO "message_slot: registered major number %d\n", majorNum);
+  printk(KERN_INFO "message_slot: registered major number %d\n", MAJOR_NUM);
   return SUCCESS;
 }
 

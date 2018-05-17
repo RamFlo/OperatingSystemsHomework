@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 		printf("Could not open file: filename = %s. %s\n", argv[1], strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-    if (ioctl(fileDesc,MSG_SLOT_CHANNEL,atoi(argv[2])<0))
+    if ((ioctl(fileDesc,MSG_SLOT_CHANNEL,atoi(argv[2])))<0)
     {
         printf("Could not change device channel: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     }
     msgBuff[charsRead]='\0';
     close(fileDesc);
-    printf("message read: %s\n",msgBuff);
+    printf("%s\n",msgBuff);
     printf("%d bytes read from %s\n",charsRead,argv[1]);
     exit(EXIT_SUCCESS);
 }
