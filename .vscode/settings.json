@@ -8,6 +8,10 @@
         "fs.h": "c",
         "message_slot.h": "c",
         "uaccess.h": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "string.h": "c",
+        "stdlib.h": "c",
+        "ioctl.h": "c",
+        "stdio.h": "c"
     }
 }
