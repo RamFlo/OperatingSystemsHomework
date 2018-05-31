@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
     }
     msgBuff[charsRead]='\0';
     close(fileDesc);
-    printf("message read: %s\n",msgBuff);
+    printf("%s\n",msgBuff);
     printf("%d bytes read from %s\n",charsRead,argv[1]);
     exit(EXIT_SUCCESS);
 }
