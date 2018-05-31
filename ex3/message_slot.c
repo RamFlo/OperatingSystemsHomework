@@ -58,6 +58,7 @@ static int device_open(struct inode *inode, struct file *file)
   if (createAndAddNewMinorSlot(minorToOpen) < 0)
     return -ENOMEM;
   file->private_data=(void*)(-1);
+  printk(KERN_INFO "message_slot: device_open: channel number is %d\n", (int)file->private_data);
   return SUCCESS;
 }
 
@@ -70,7 +71,12 @@ static int device_release(struct inode *inode, struct file *file)
 // the device file attempts to read from it
 static ssize_t device_read(struct file *file, char __user *buffer, size_t length, loff_t *offset)
 {
+<<<<<<< HEAD
+    int minorNum=-1,i=0,channelNum=(int)(size_t)file->private_data;
+    printk(KERN_INFO "message_slot: device_read: channel number is %d\n", channelNum);
+=======
     int minorNum=-1,i=0,channelNum=(int)((size_t)file->private_data);
+>>>>>>> b2d593ff38b9c6aa7ba9b36bdebea44c3f4dc42a
   minorMsgSlotNode *minorPtr=NULL;
   //no channel has been set
   if (channelNum==-1)
@@ -96,7 +102,12 @@ static ssize_t device_read(struct file *file, char __user *buffer, size_t length
 // the device file attempts to write to it
 static ssize_t device_write(struct file *file, const char __user *buffer, size_t length, loff_t *offset)
 {
+<<<<<<< HEAD
+  int minorNum=-1,i=0,channelNum=(int)file->private_data;
+  printk(KERN_INFO "message_slot: device_write: channel number is %d\n", channelNum);
+=======
   int minorNum=-1,i=0,channelNum=(int)((size_t)file->private_data);
+>>>>>>> b2d593ff38b9c6aa7ba9b36bdebea44c3f4dc42a
   minorMsgSlotNode *minorPtr=NULL;
   //no channel has been set
   if (channelNum==-1)
@@ -118,6 +129,7 @@ static ssize_t device_write(struct file *file, const char __user *buffer, size_t
 
 static long device_ioctl(struct file *file, unsigned int ioctl_command_id, unsigned long ioctl_param)
 {
+  printk(KERN_INFO "message_slot: device_ioctl: ioctl_param is %lu\n", ioctl_param);
   //check recieved command
   if (ioctl_command_id != MSG_SLOT_CHANNEL)
     return -EINVAL;

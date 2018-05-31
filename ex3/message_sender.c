@@ -21,7 +21,11 @@ int main(int argc, char* argv[])
 		printf("Could not open file: filename = %s. %s\n", argv[1], strerror(errno));
 		exit(EXIT_FAILURE);
 	}
+<<<<<<< HEAD
+    if ((ioctl(fileDesc,MSG_SLOT_CHANNEL,atoi(argv[2])))<0)
+=======
     if ((ioctl(fileDesc,MSG_SLOT_CHANNEL,atoi(argv[2]))<0))
+>>>>>>> b2d593ff38b9c6aa7ba9b36bdebea44c3f4dc42a
     {
         printf("Could not change device channel: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
