@@ -10,14 +10,14 @@
 
 #define CHUNK_SIZE 1048576
 
-int runningThreadsNum = 0, visitedThreadNum = 0, outputFileDesc = 0, totalBytesWritten = 0, curChunkSize = 0;
+int runningThreadsNum = 0, visitedThreadNum = 0, outputFileDesc = 0, totalBytesWritten = 0, curChunkSize = 0, globalIterationNum = 1;
 char globalChunkBuffer[CHUNK_SIZE] = "";
 pthread_mutex_t write_mutex;
 pthread_cond_t prev_iter_finished_cv;
 
 void *threadFileRead(void *threadFileName)
 {
-    int readFileDesc, bytesRead, i = 0;
+    int readFileDesc, bytesRead, i = 0, localIterationNum = 0;
     char *fileName = (char *)threadFileName;
     char threadChunkBuffer[CHUNK_SIZE] = "";
     readFileDesc = open(fileName, O_RDONLY);
@@ -29,6 +29,7 @@ void *threadFileRead(void *threadFileName)
 
     while ((bytesRead = read(readFileDesc, threadChunkBuffer, CHUNK_SIZE)) >= 0)
     {
+        localIterationNum++;
         if (pthread_mutex_lock(&write_mutex) < 0)
         {
             printf("pthread_mutex_lock error. %s\n", strerror(errno));
@@ -55,6 +56,7 @@ void *threadFileRead(void *threadFileName)
             visitedThreadNum = 0;
             for (i = 0; i < CHUNK_SIZE; i++)
                 globalChunkBuffer[i] = 0;
+            globalIterationNum++; //update global iteration number and broadcast: go to next iteration
             if (pthread_cond_broadcast(&prev_iter_finished_cv) != 0)
             {
                 printf("Could not broadcast on signal. %s\n", strerror(errno));
@@ -63,11 +65,14 @@ void *threadFileRead(void *threadFileName)
         }
         else if (bytesRead == CHUNK_SIZE) //not last thread and not finished: wait for iteration to finish
         {
-            if (pthread_cond_wait(&prev_iter_finished_cv, &write_mutex) != 0)
+            do
             {
-                printf("Could not wait on condition. %s\n", strerror(errno));
-                exit(EXIT_FAILURE);
-            }
+                if (pthread_cond_wait(&prev_iter_finished_cv, &write_mutex) != 0)
+                {
+                    printf("Could not wait on condition. %s\n", strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+            } while (localIterationNum == globalIterationNum);
         }
         if (pthread_mutex_unlock(&write_mutex) != 0)
         {
@@ -82,6 +87,7 @@ void *threadFileRead(void *threadFileName)
         printf("Could not read from file: filename = %s. %s\n", fileName, strerror(errno));
         exit(EXIT_FAILURE);
     }
+    close(readFileDesc);
     pthread_exit(NULL);
 }
 
@@ -133,5 +139,7 @@ int main(int argc, char *argv[])
     free(thread_ids);
     close(outputFileDesc);
     printf("Created %s with size %d bytes\n", argv[1], totalBytesWritten);
+    pthread_cond_destroy(&prev_iter_finished_cv);
+    pthread_mutex_destroy(&write_mutex);
     exit(EXIT_SUCCESS);
 }
