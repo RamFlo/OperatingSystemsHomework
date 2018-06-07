@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdint.h>
 
 void printErrorAndExit(const char *errStr)
 {
@@ -18,15 +19,16 @@ void printErrorAndExit(const char *errStr)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, randomCharsFd, charsSent;
-    unsigned int numOfCharsLeftToSend,sPort,totalCharsSent = 0;
-    char *charBuffer;
+    int sockfd, randomCharsFd, charsSent, charsRead, numOfCharsLeftToRecieve;
+    unsigned int numOfCharsLeftToSend, sPort, totalCharsSent = 0,serverRetVal;
+    uint32_t ret;
+    char *charBuffer, *retPtr;
     struct addrinfo hints;
     struct addrinfo *result, *rp;
     memset(&hints, 0, sizeof(struct addrinfo));
 
-    sscanf(argv[3],"%u",&numOfCharsLeftToSend);
-    sscanf(argv[2],"%u",&sPort);
+    sscanf(argv[3], "%u", &numOfCharsLeftToSend);
+    sscanf(argv[2], "%u", &sPort);
 
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(struct sockaddr_in));
@@ -85,4 +87,23 @@ int main(int argc, char *argv[])
         numOfCharsLeftToSend -= charsSent;
         totalCharsSent += charsSent;
     }
+    free(charBuffer);
+
+    retPtr = (char *)&ret;
+    numOfCharsLeftToRecieve = sizeof(ret);
+
+    while ((charsRead = read(sockfd, retPtr, numOfCharsLeftToRecieve)) > 0)
+    {
+        numOfCharsLeftToRecieve -= charsRead;
+        retPtr += charsRead;
+    }
+    if (charsRead < 0)
+    {
+        close(sockfd);
+        printErrorAndExit("could not read response from server");
+    }
+
+    serverRetVal = ntohl(ret);
+
+
 }
