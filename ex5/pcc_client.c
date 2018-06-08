@@ -105,5 +105,8 @@ int main(int argc, char *argv[])
 
     serverRetVal = ntohl(ret);
 
+    printf("# of printable characters: %u\n",serverRetVal);
+
+    
 
 }
