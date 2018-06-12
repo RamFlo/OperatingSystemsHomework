@@ -17,23 +17,51 @@ void printErrorAndExit(const char *errStr)
     exit(EXIT_FAILURE);
 }
 
+int readDataFromServer(int sockfd, char *readIntoPtr, int readLength)
+{
+    int charsRead = 0, ret = readLength;
+    while ((charsRead = read(sockfd, readIntoPtr, readLength)) > 0)
+    {
+        readLength -= charsRead;
+        readIntoPtr += charsRead;
+    }
+    if (charsRead < 0)
+        return -1;
+    return ret;
+}
+
+int sendDataToServer(int sockfd, char *data, int dataLength)
+{
+    int charsSent = 0, totalCharsSent = 0;
+    while (dataLength > 0)
+    {
+        charsSent = write(sockfd, data + totalCharsSent, dataLength);
+        if (charsSent == -1)
+            return -1;
+        dataLength -= charsSent;
+        totalCharsSent += charsSent;
+    }
+    return totalCharsSent;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, randomCharsFd, charsSent, charsRead, numOfCharsLeftToRecieve;
-    unsigned int numOfCharsLeftToSend, sPort, totalCharsSent = 0,serverRetVal;
-    uint32_t ret;
+    unsigned int numOfCharsLeftToSend, totalCharsSent = 0, serverRetVal;
+    unsigned short serverPort;
+    uint32_t printableChars, charsToSendNetworkFormat;
     char *charBuffer, *retPtr;
     struct addrinfo hints;
     struct addrinfo *result, *rp;
     memset(&hints, 0, sizeof(struct addrinfo));
 
     sscanf(argv[3], "%u", &numOfCharsLeftToSend);
-    sscanf(argv[2], "%u", &sPort);
+    sscanf(argv[2], "%hu", &serverPort);
 
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(struct sockaddr_in));
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(sPort);
+    serv_addr.sin_port = htons(serverPort);
 
     if (inet_aton(argv[1], &serv_addr.sin_addr) == 0) //if host is not a valid ip address
     {
@@ -41,7 +69,7 @@ int main(int argc, char *argv[])
         hints.ai_socktype = SOCK_STREAM; /* TCP socket */
         hints.ai_flags = 0;
         hints.ai_protocol = 0; /* Any protocol */
-        if (getaddrinfo(argv[1], NULL, &hints, &result) != 0)
+        if (getaddrinfo(argv[1], argv[2], &hints, &result) != 0)
             printErrorAndExit("getaddrinfo() failiure");
 
         for (rp = result; rp != NULL; rp = rp->ai_next)
@@ -68,6 +96,7 @@ int main(int argc, char *argv[])
             printErrorAndExit("Connection to server failed (based on IP address)");
         }
     }
+
     if (randomCharsFd = open("/dev/urandom", O_RDONLY) < 0)
         printErrorAndExit("could not open /dev/urandom");
 
@@ -75,38 +104,30 @@ int main(int argc, char *argv[])
     if (read(randomCharsFd, charBuffer, numOfCharsLeftToSend) != numOfCharsLeftToSend)
         printErrorAndExit("could not read from /dev/urandom");
 
-    while (numOfCharsLeftToSend > 0)
+    charsToSendNetworkFormat = htonl(numOfCharsLeftToSend);
+    if (sendDataToServer(sockfd, (char *)&charsToSendNetworkFormat, sizeof(uint32_t)) < 0) //send message size to server
     {
-        charsSent = write(sockfd, charBuffer + totalCharsSent, numOfCharsLeftToSend);
-        if (charsSent == -1)
-        {
-            close(sockfd);
-            free(charBuffer);
-            printErrorAndExit("could not write message to server");
-        }
-        numOfCharsLeftToSend -= charsSent;
-        totalCharsSent += charsSent;
+        close(sockfd);
+        free(charBuffer);
+        printErrorAndExit("Could not send messsage size to server");
+    }
+
+    if (sendDataToServer(sockfd, charBuffer, numOfCharsLeftToSend) < 0) //send message to server
+    {
+        close(sockfd);
+        free(charBuffer);
+        printErrorAndExit("Could not send messsage to server");
     }
     free(charBuffer);
 
-    retPtr = (char *)&ret;
-    numOfCharsLeftToRecieve = sizeof(ret);
-
-    while ((charsRead = read(sockfd, retPtr, numOfCharsLeftToRecieve)) > 0)
-    {
-        numOfCharsLeftToRecieve -= charsRead;
-        retPtr += charsRead;
-    }
-    if (charsRead < 0)
+    if ((readDataFromServer(sockfd, (char *)&printableChars, sizeof(uint32_t))) < 0)
     {
         close(sockfd);
         printErrorAndExit("could not read response from server");
     }
 
-    serverRetVal = ntohl(ret);
-
-    printf("# of printable characters: %u\n",serverRetVal);
-
-    
-
+    serverRetVal = ntohl(printableChars);
+    close(sockfd);
+    printf("# of printable characters: %u\n", serverRetVal);
+    exit(EXIT_SUCCESS);
 }
