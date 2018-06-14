@@ -11,15 +11,17 @@
 #include <fcntl.h>
 #include <stdint.h>
 
+#define LOCAL_BUFF_SIZE 4096
+
 void printErrorAndExit(const char *errStr)
 {
     printf("%s: %s\n", errStr, strerror(errno));
     exit(EXIT_FAILURE);
 }
 
-int readDataFromServer(int sockfd, char *readIntoPtr, int readLength)
+int readDataFromServer(int sockfd, char *readIntoPtr, unsigned int readLength)
 {
-    int charsRead = 0, ret = readLength;
+    unsigned int ret = readLength, charsRead = 0;
     while ((charsRead = read(sockfd, readIntoPtr, readLength)) > 0)
     {
         readLength -= charsRead;
@@ -30,9 +32,9 @@ int readDataFromServer(int sockfd, char *readIntoPtr, int readLength)
     return ret;
 }
 
-int sendDataToServer(int sockfd, char *data, int dataLength)
+int sendDataToServer(int sockfd, char *data, unsigned int dataLength)
 {
-    int charsSent = 0, totalCharsSent = 0;
+    unsigned int charsSent = 0, totalCharsSent = 0;
     while (dataLength > 0)
     {
         charsSent = write(sockfd, data + totalCharsSent, dataLength);
@@ -46,11 +48,12 @@ int sendDataToServer(int sockfd, char *data, int dataLength)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, randomCharsFd, charsSent, charsRead, numOfCharsLeftToRecieve;
-    unsigned int numOfCharsLeftToSend, totalCharsSent = 0, serverRetVal;
+    int sockfd, randomCharsFd, charsReadFromRand;
+    unsigned int numOfCharsLeftToSend, serverRetVal, numOfCharsLeftToReadFromRand, chunkSizeToSend;
     unsigned short serverPort;
     uint32_t printableChars, charsToSendNetworkFormat;
-    char *charBuffer, *retPtr;
+    char charBuffer[LOCAL_BUFF_SIZE];
+    char *charBuffPtr;
     struct addrinfo hints;
     struct addrinfo *result, *rp;
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -74,7 +77,7 @@ int main(int argc, char *argv[])
 
         for (rp = result; rp != NULL; rp = rp->ai_next)
         {
-            sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+            sockfd = socket(AF_INET, SOCK_STREAM, 0);
             if (sockfd == -1)
                 continue;
             if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) != -1)
@@ -97,28 +100,37 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (randomCharsFd = open("/dev/urandom", O_RDONLY) < 0)
+    if ((randomCharsFd = open("/dev/urandom", O_RDONLY)) < 0)
         printErrorAndExit("could not open /dev/urandom");
 
-    charBuffer = (char *)malloc(sizeof(char) * numOfCharsLeftToSend);
-    if (read(randomCharsFd, charBuffer, numOfCharsLeftToSend) != numOfCharsLeftToSend)
-        printErrorAndExit("could not read from /dev/urandom");
-
     charsToSendNetworkFormat = htonl(numOfCharsLeftToSend);
-    if (sendDataToServer(sockfd, (char *)&charsToSendNetworkFormat, sizeof(uint32_t)) < 0) //send message size to server
+    if (sendDataToServer(sockfd, (char *)&charsToSendNetworkFormat, sizeof(uint32_t)) < 0) //send total message size to server
     {
         close(sockfd);
-        free(charBuffer);
         printErrorAndExit("Could not send messsage size to server");
     }
 
-    if (sendDataToServer(sockfd, charBuffer, numOfCharsLeftToSend) < 0) //send message to server
+    while (numOfCharsLeftToSend > 0)
     {
-        close(sockfd);
-        free(charBuffer);
-        printErrorAndExit("Could not send messsage to server");
+        chunkSizeToSend = numOfCharsLeftToSend < LOCAL_BUFF_SIZE ? numOfCharsLeftToSend : LOCAL_BUFF_SIZE;
+        numOfCharsLeftToReadFromRand = chunkSizeToSend;
+
+        charBuffPtr = charBuffer;
+        while ((charsReadFromRand = read(randomCharsFd, charBuffPtr, numOfCharsLeftToReadFromRand)) < numOfCharsLeftToReadFromRand)
+        {
+            if (charsReadFromRand < 0)
+                printErrorAndExit("could not read from /dev/urandom");
+            numOfCharsLeftToReadFromRand -= charsReadFromRand;
+            charBuffPtr += charsReadFromRand;
+        }
+
+        if (sendDataToServer(sockfd, charBuffer, chunkSizeToSend) < 0) //send message to server
+        {
+            close(sockfd);
+            printErrorAndExit("Could not send messsage to server");
+        }
+        numOfCharsLeftToSend -= chunkSizeToSend;
     }
-    free(charBuffer);
 
     if ((readDataFromServer(sockfd, (char *)&printableChars, sizeof(uint32_t))) < 0)
     {

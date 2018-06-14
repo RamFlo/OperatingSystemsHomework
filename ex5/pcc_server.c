@@ -11,23 +11,40 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <signal.h>
+#include <libgen.h>
 
 #define PRINTABLE_CHARS 95
 #define CONNECTION_QUEUE_SIZE 100
+#define LOCAL_BUFF_SIZE 4096
 
 typedef struct clientProcNode
 {
     pthread_t clientProcThread;
-    int clientConnfd;
     struct clientProcNode *next;
 } clientProcNode;
 
+pthread_mutex_t pcc_count_mutex;
 clientProcNode *headNode = NULL;
 int listenfd;
+unsigned int pcc_count[PRINTABLE_CHARS] = {0};
 
-int readDataFromClient(int sockfd, char *readIntoPtr, int readLength)
+void printErrorAndExit(const char *errStr)
 {
-    int charsRead = 0, ret = readLength;
+    printf("%s: %s\n", errStr, strerror(errno));
+    exit(EXIT_FAILURE);
+}
+
+void printPrintableCharsCount()
+{
+    int i = 0;
+    for (i = 0; i < PRINTABLE_CHARS; i++)
+        printf("char '%c' : %u times\n", (i + 32), pcc_count[i]);
+}
+
+int readDataFromClient(int sockfd, char *readIntoPtr, unsigned int readLength)
+{
+    unsigned int charsRead = 0, ret = readLength;
     while ((charsRead = read(sockfd, readIntoPtr, readLength)) > 0)
     {
         readLength -= charsRead;
@@ -38,9 +55,9 @@ int readDataFromClient(int sockfd, char *readIntoPtr, int readLength)
     return ret;
 }
 
-int sendDataToClient(int sockfd, char *data, int dataLength)
+int sendDataToClient(int sockfd, char *data, unsigned int dataLength)
 {
-    int charsSent = 0, totalCharsSent = 0;
+    unsigned int charsSent = 0, totalCharsSent = 0;
     while (dataLength > 0)
     {
         charsSent = write(sockfd, data + totalCharsSent, dataLength);
@@ -54,17 +71,49 @@ int sendDataToClient(int sockfd, char *data, int dataLength)
 
 void *thread_clientProc(void *client_Connfd)
 {
-    int clientConnfd = (int)((size_t)client_Connfd);
-    uint32_t clientRetVal;
-    unsigned int charsToRead
+    int clientConnfd = (int)((size_t)client_Connfd), i = 0;
+    uint32_t clientRetVal, serverRetVal;
+    unsigned int charsToRead, totalPrintableCharsFromClient = 0, charsToReadIteration;
+    char charsBuffer[LOCAL_BUFF_SIZE];
 
-    if ((readDataFromServer(sockfd, (char *)&clientRetVal, sizeof(uint32_t))) < 0)
+    if ((readDataFromClient(clientConnfd, (char *)&clientRetVal, sizeof(uint32_t))) < 0)
     {
-        close(sockfd);
-        printErrorAndExit("could not read response from server");
+        close(clientConnfd);
+        printErrorAndExit("could not read length of message from client");
+    }
+    charsToRead = ntohl(clientRetVal);
+
+    while (charsToRead > 0)
+    {
+        charsToReadIteration = charsToRead < LOCAL_BUFF_SIZE ? charsToRead : LOCAL_BUFF_SIZE;
+        if ((readDataFromClient(clientConnfd, charsBuffer, charsToReadIteration)) < 0)
+        {
+            close(clientConnfd);
+            printErrorAndExit("could not read message from client");
+        }
+        for (i = 0; i < charsToReadIteration; i++)
+        {
+            if (charsBuffer[i] >= 32 && charsBuffer[i] <= 126)
+            {
+                totalPrintableCharsFromClient++;
+                if (pthread_mutex_lock(&pcc_count_mutex) < 0)
+                    printErrorAndExit("pthread_mutex_lock error");
+                pcc_count[charsBuffer[i] - 32]++;
+                if (pthread_mutex_unlock(&pcc_count_mutex) != 0)
+                    printErrorAndExit("Could not unlock mutex");
+            }
+        }
+        charsToRead -= charsToReadIteration;
     }
 
-    serverRetVal = ntohl(clientRetVal);
+    serverRetVal = htonl(totalPrintableCharsFromClient);
+    if ((sendDataToClient(clientConnfd, (char *)&serverRetVal, sizeof(uint32_t))) < 0)
+    {
+        close(clientConnfd);
+        printErrorAndExit("could not send response to client");
+    }
+    close(clientConnfd);
+    pthread_exit(NULL);
 }
 
 int createAndAddNewClientProc(int client_Connfd)
@@ -72,12 +121,12 @@ int createAndAddNewClientProc(int client_Connfd)
     clientProcNode *newClientProcNode = (clientProcNode *)malloc(sizeof(clientProcNode));
     if (newClientProcNode == NULL)
         return -1;
-    newClientProcNode->clientConnfd = client_Connfd;
-    if (pthread_create(&newClientProcNode->clientProcThread, NULL, thread_clientProc, (void *)client_Connfd) < 0)
+    if (pthread_create(&newClientProcNode->clientProcThread, NULL, thread_clientProc, (void *)(intptr_t)client_Connfd) < 0)
     {
         printf("Could not create thread. %s\n", strerror(errno));
         exit(EXIT_FAILURE);
     }
+    newClientProcNode->next = headNode;
     headNode = newClientProcNode;
     return 1;
 }
@@ -88,23 +137,26 @@ void freeClientList(clientProcNode *curNode)
         return;
     if (pthread_join(curNode->clientProcThread, NULL) < 0)
         printErrorAndExit("pthread_join error");
-    close(curNode->clientConnfd);
-    freeCientList(curNode->next);
+    freeClientList(curNode->next);
     free(curNode);
 }
 
-unsigned int pcc_count[PRINTABLE_CHARS] = {0};
-
-void printErrorAndExit(const char *errStr)
+void my_signal_handler(int signum, siginfo_t *info, void *ptr)
 {
-    printf("%s: %s\n", errStr, strerror(errno));
-    exit(EXIT_FAILURE);
+    if (signum == SIGINT)
+    {
+        close(listenfd);
+        freeClientList(headNode);
+        printPrintableCharsCount();
+        exit(EXIT_SUCCESS);
+    }
 }
 
 int main(int argc, char *argv[])
 {
     int connfd;
     unsigned short serverPort;
+    struct sigaction new_action;
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         printErrorAndExit("Failed creating listening socket");
 
@@ -114,6 +166,18 @@ int main(int argc, char *argv[])
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(serverPort);
+
+    memset(&new_action, 0, sizeof(new_action));
+    new_action.sa_sigaction = my_signal_handler;
+    new_action.sa_flags = SA_SIGINFO;
+    if (0 != sigaction(SIGINT, &new_action, NULL))
+        printErrorAndExit("Signal handle registration failed");
+
+    if (pthread_mutex_init(&pcc_count_mutex, NULL) != 0)
+    {
+        printf("Could not initiate mutex. %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
 
     if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr_in)) == -1)
     {
@@ -138,23 +202,11 @@ int main(int argc, char *argv[])
             close(listenfd);
             printErrorAndExit("Failed accepting client connection");
         }
-
-        int bytes_to_send = strlen(msg);
-        while (bytes_to_send > 0)
+        if (createAndAddNewClientProc(connfd) < 0)
         {
-            int bytes_sent = write(connfd, msg, bytes_to_send);
-            if (bytes_sent == -1)
-            {
-                perror("Failed sending message to client");
-                close(connfd);
-                close(listenfd);
-                return EXIT_FAILURE;
-            }
-            bytes_to_send -= bytes_sent;
-            msg += bytes_sent;
+            close(listenfd);
+            printErrorAndExit("Failed creating new client proccessor");
         }
-
-        //close(connfd);
     }
 
     exit(EXIT_SUCCESS);

@@ -15,6 +15,7 @@
         "stdio.h": "c",
         "stat.h": "c",
         "stdint.h": "c",
-        "fcntl.h": "c"
+        "fcntl.h": "c",
+        "inet.h": "c"
     }
 }
