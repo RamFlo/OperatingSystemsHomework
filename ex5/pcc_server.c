@@ -148,6 +148,7 @@ void my_signal_handler(int signum, siginfo_t *info, void *ptr)
         close(listenfd);
         freeClientList(headNode);
         printPrintableCharsCount();
+        pthread_mutex_destroy(&pcc_count_mutex);
         exit(EXIT_SUCCESS);
     }
 }
@@ -181,15 +182,16 @@ int main(int argc, char *argv[])
 
     if (bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr_in)) == -1)
     {
-        printErrorAndExit("Failed binding socket");
+        pthread_mutex_destroy(&pcc_count_mutex);
         close(listenfd);
+        printErrorAndExit("Failed binding socket");
     }
 
     if (listen(listenfd, CONNECTION_QUEUE_SIZE) == -1)
     {
-        perror("Failed to start listening to incoming connections");
+        pthread_mutex_destroy(&pcc_count_mutex);
         close(listenfd);
-        return EXIT_FAILURE;
+        printErrorAndExit("Failed to start listening to incoming connections");
     }
 
     while (1)
@@ -200,14 +202,16 @@ int main(int argc, char *argv[])
         if (connfd == -1)
         {
             close(listenfd);
+            pthread_mutex_destroy(&pcc_count_mutex);
             printErrorAndExit("Failed accepting client connection");
         }
         if (createAndAddNewClientProc(connfd) < 0)
         {
             close(listenfd);
+            pthread_mutex_destroy(&pcc_count_mutex);
             printErrorAndExit("Failed creating new client proccessor");
         }
     }
-
+    pthread_mutex_destroy(&pcc_count_mutex);
     exit(EXIT_SUCCESS);
 }
